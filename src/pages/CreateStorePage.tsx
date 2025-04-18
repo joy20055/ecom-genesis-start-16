@@ -3,22 +3,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import StoreCreationForm from "@/components/StoreCreationForm";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CreateStorePage = () => {
   const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
-      }
-    };
+    if (!isLoading && !user) {
+      console.log("User not authenticated, redirecting to login");
+      navigate("/login");
+    }
+  }, [user, isLoading, navigate]);
 
-    checkAuth();
-  }, [navigate]);
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
 
+  // If user is not logged in, this will redirect in the useEffect above
+  // If we're still rendering this component, it means the user is authenticated
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-xl">

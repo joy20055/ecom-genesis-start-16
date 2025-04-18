@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import DashboardTabs from "./DashboardTabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface User {
   id: string;
@@ -16,25 +18,34 @@ interface User {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  const { user: authUser, isLoading } = useAuth();
   
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem("user");
-    
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      // Redirect to login if not logged in
-      navigate("/login");
+    // Check if user is logged in using AuthContext
+    if (!isLoading) {
+      if (authUser) {
+        // Convert Supabase user to our User format
+        const userData = {
+          id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || "User",
+          email: authUser.email || "",
+          phone: authUser.phone || "",
+          createdAt: authUser.created_at
+        };
+        setUser(userData);
+      } else {
+        // Redirect to login if not logged in
+        navigate("/login");
+      }
     }
-  }, [navigate]);
+  }, [authUser, isLoading, navigate]);
   
-  const handleLogout = () => {
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate("/login");
   };
   
-  if (!user) {
+  if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p>Loading...</p>

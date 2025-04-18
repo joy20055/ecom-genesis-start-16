@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@/contexts/AuthContext";
 
 const storeFormSchema = z.object({
   name: z.string().min(2, "Store name must be at least 2 characters"),
@@ -37,6 +38,7 @@ const StoreCreationForm = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const form = useForm<StoreFormValues>({
     resolver: zodResolver(storeFormSchema),
@@ -53,43 +55,47 @@ const StoreCreationForm = () => {
     setIsLoading(true);
     setError(null);
 
-    // Get the current user's session
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
-
-    if (!userId) {
+    if (!user) {
       setError("You must be logged in to create a store");
       setIsLoading(false);
       return;
     }
 
-    const { error: storeError } = await supabase
-      .from('shops')
-      .insert([
-        {
-          name: data.name,
-          description: data.description || "",
-          category: data.category,
-          contact_number: data.contactNumber,
-          subdomain: data.subdomain.toLowerCase(),
-          user_id: userId,
-          email: sessionData.session.user.email,
-        },
-      ]);
+    try {
+      const { error: storeError } = await supabase
+        .from('shops')
+        .insert([
+          {
+            name: data.name,
+            description: data.description || "",
+            category: data.category,
+            contact_number: data.contactNumber,
+            subdomain: data.subdomain.toLowerCase(),
+            user_id: user.id,
+            email: user.email,
+          },
+        ]);
 
-    setIsLoading(false);
-
-    if (storeError) {
-      if (storeError.code === '23505') {
-        setError("This subdomain is already taken. Please choose another one.");
-      } else {
-        setError(storeError.message);
+      if (storeError) {
+        if (storeError.code === '23505') {
+          setError("This subdomain is already taken. Please choose another one.");
+        } else {
+          setError(storeError.message);
+        }
+        console.error("Store creation error:", storeError);
+        setIsLoading(false);
+        return;
       }
-      return;
-    }
 
-    toast.success("Store created successfully!");
-    navigate("/dashboard");
+      toast.success("Store created successfully!");
+      navigate("/dashboard");
+      
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
